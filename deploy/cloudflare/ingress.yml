@@ -1,0 +1,16 @@
+# Cloudflare Tunnel — Adicionar ao /etc/cloudflared/config.yml
+# Host da Orbitan onde o NexusOS vai rodar (Coolify LXC: 192.168.3.57)
+
+ingress:
+  # NexusOS - Web Frontend
+  - hostname: nexus.orbitan.com.br
+    service: http://192.168.3.57:3001
+
+  # NexusOS - API
+  - hostname: nexus-api.orbitan.com.br
+    service: http://192.168.3.57:3000
+
+  # Serviços existentes
+  - hostname: n8n.orbitan.com.br
+    service: http://192.168.3.59:5678
+  - service: http_status:404
