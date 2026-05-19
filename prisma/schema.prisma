@@ -1,0 +1,280 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Tenants ──────────────────────────────────
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  plan      String   @default("STARTER") // STARTER | BUSINESS | ENTERPRISE
+  status    String   @default("ACTIVE")  // ACTIVE | INACTIVE | SUSPENDED
+  settings  Json     @default("{}")
+  features  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  sessions  WhatsAppSession[]
+  workflows Workflow[]
+  charges   Charge[]
+  customers Customer[]
+  auditLogs AuditLog[]
+}
+
+// ─── Users / Auth ─────────────────────────────
+
+model User {
+  id         String   @id @default(uuid())
+  tenantId   String
+  email      String   @unique
+  name       String
+  password   String
+  role       String   @default("OPERATOR") // OWNER | ADMIN | OPERATOR | FINANCIAL | SUPPORT
+  avatar     String?
+  phone      String?
+  isActive   Boolean  @default(true)
+  lastLogin  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessions   DeviceSession[]
+  auditLogs  AuditLog[]
+
+  @@index([tenantId])
+}
+
+model DeviceSession {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  device    String?
+  ip        String
+  userAgent String?
+  isActive  Boolean  @default(true)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+// ─── WhatsApp ─────────────────────────────────
+
+model WhatsAppSession {
+  id         String   @id @default(uuid())
+  tenantId   String
+  name       String
+  number     String?
+  status     String   @default("DISCONNECTED")
+  qrCode     String?
+  webhookUrl String?
+  settings   Json     @default("{}")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@unique([tenantId, name])
+}
+
+model MessageLog {
+  id         String   @id @default(uuid())
+  tenantId   String
+  sessionId  String
+  from       String
+  to         String
+  body       String?
+  mediaUrl   String?
+  messageType String  @default("text")
+  status     String   @default("PENDING") // PENDING | SENT | DELIVERED | READ | FAILED
+  timestamp  DateTime @default(now())
+
+  @@index([tenantId, sessionId])
+  @@index([timestamp])
+}
+
+// ─── Commands ─────────────────────────────────
+
+model CommandIntent {
+  id          String @id @default(uuid())
+  module      String // infra | whatsapp | finance | workflow | analytics | ai | system
+  patterns    String[]
+  action      String
+  params      Json   @default("[]")
+  description String
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CommandLog {
+  id             String   @id @default(uuid())
+  tenantId       String
+  userId         String?
+  sessionId      String?
+  rawInput       String
+  parsed         Json?
+  module         String
+  action         String
+  status         String   @default("PENDING") // PENDING | SUCCESS | FAILURE | BLOCKED
+  result         Json?
+  executionTimeMs Int?
+  error          String?
+  confidence     Float?
+  createdAt      DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([createdAt])
+}
+
+// ─── Workflows ────────────────────────────────
+
+model Workflow {
+  id             String   @id @default(uuid())
+  tenantId       String
+  name           String
+  description    String?
+  trigger        Json
+  actions        Json
+  status         String   @default("ACTIVE") // ACTIVE | INACTIVE | ERROR
+  executionCount Int      @default(0)
+  lastExecutedAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  executions     WorkflowExecution[]
+
+  @@index([tenantId])
+}
+
+model WorkflowExecution {
+  id         String   @id @default(uuid())
+  workflowId String
+  tenantId   String
+  trigger    String
+  status     String   @default("RUNNING") // RUNNING | SUCCESS | FAILURE
+  input      Json?
+  output     Json?
+  error      String?
+  startedAt  DateTime @default(now())
+  completedAt DateTime?
+
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  logs       WorkflowLog[]
+
+  @@index([workflowId])
+  @@index([status])
+}
+
+model WorkflowLog {
+  id          String   @id @default(uuid())
+  executionId String
+  actionId    String
+  status      String   @default("PENDING") // PENDING | RUNNING | SUCCESS | FAILURE
+  input       Json?
+  output      Json?
+  error       String?
+  durationMs  Int?
+  timestamp   DateTime @default(now())
+
+  execution   WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+}
+
+// ─── Finance ──────────────────────────────────
+
+model Customer {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  email     String?
+  phone     String?
+  document  String?
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  charges   Charge[]
+
+  @@index([tenantId])
+}
+
+model Charge {
+  id          String   @id @default(uuid())
+  tenantId    String
+  customerId  String
+  amount      Float
+  description String
+  method      String   // PIX | BOLETO | CREDIT_CARD
+  status      String   @default("PENDING") // PENDING | PAID | OVERDUE | CANCELLED | REFUNDED
+  pixCode     String?
+  pixQrCode   String?
+  boletoUrl   String?
+  boletoBarCode String?
+  dueDate     DateTime
+  paidAt      DateTime?
+  externalId  String?
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model PixTransaction {
+  id          String   @id @default(uuid())
+  chargeId    String?
+  amount      Float
+  description String
+  status      String   @default("PENDING") // PENDING | COMPLETED | FAILED
+  qrCode      String?
+  payload     String?
+  endToEndId  String?
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+}
+
+// ─── Audit ────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String
+  userId     String
+  action     String
+  resource   String
+  resourceId String?
+  details    Json?
+  ip         String
+  userAgent  String?
+  result     String   // SUCCESS | FAILURE
+  createdAt  DateTime @default(now())
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([createdAt])
+}

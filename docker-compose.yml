@@ -1,0 +1,173 @@
+version: "3.9"
+
+networks:
+  nexusos-network:
+    driver: bridge
+
+volumes:
+  pgadmin-data:
+
+services:
+  # ─── Infra ───────────────────────────────────
+  postgres:
+    extends:
+      file: docker-compose.infra.yml
+      service: postgres
+
+  redis:
+    extends:
+      file: docker-compose.infra.yml
+      service: redis
+
+  rabbitmq:
+    extends:
+      file: docker-compose.infra.yml
+      service: rabbitmq
+
+  minio:
+    extends:
+      file: docker-compose.infra.yml
+      service: minio
+
+  clickhouse:
+    extends:
+      file: docker-compose.infra.yml
+      service: clickhouse
+
+  # ─── Apps ────────────────────────────────────
+  api-gateway:
+    build:
+      context: .
+      dockerfile: apps/api-gateway/Dockerfile
+    container_name: nexusos-api-gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - nexusos-network
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: apps/auth-service/Dockerfile
+    container_name: nexusos-auth-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - nexusos-network
+
+  whatsapp-service:
+    build:
+      context: .
+      dockerfile: apps/whatsapp-service/Dockerfile
+    container_name: nexusos-whatsapp-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./sessions:/app/sessions
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - nexusos-network
+
+  command-service:
+    build:
+      context: .
+      dockerfile: apps/command-service/Dockerfile
+    container_name: nexusos-command-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - nexusos-network
+
+  workflow-service:
+    build:
+      context: .
+      dockerfile: apps/workflow-service/Dockerfile
+    container_name: nexusos-workflow-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - nexusos-network
+
+  finance-service:
+    build:
+      context: .
+      dockerfile: apps/finance-service/Dockerfile
+    container_name: nexusos-finance-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - nexusos-network
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: apps/ai-service/Dockerfile
+    container_name: nexusos-ai-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - nexusos-network
+
+  web:
+    build:
+      context: web
+      dockerfile: Dockerfile
+    container_name: nexusos-web
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    env_file:
+      - .env
+    depends_on:
+      - api-gateway
+    networks:
+      - nexusos-network

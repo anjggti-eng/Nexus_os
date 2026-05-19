@@ -1,0 +1,23 @@
+{
+  "name": "@nexusos/shared-auth",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.3.0",
+    "@nestjs/passport": "^10.0.3",
+    "@nestjs/jwt": "^10.2.0",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "@nexusos/shared-types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

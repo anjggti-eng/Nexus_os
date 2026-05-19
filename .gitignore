@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.next/
+*.log
+.env
+.env.local
+.env.*.local
+sessions/
+.turbo/
+coverage/
+*.tsbuildinfo
+.DS_Store
+docker-data/
+pgdata/
+startup.log
+*.deb
