@@ -1,0 +1,17 @@
+node_modules/
+.git/
+.gitignore
+.env
+.env.local
+.env.*.local
+*.log
+sessions/
+.turbo/
+coverage/
+*.tsbuildinfo
+.DS_Store
+docker-data/
+pgdata/
+*.deb
+dist/
+.next/
