@@ -4,7 +4,7 @@ ARG NEXT_PUBLIC_WS_URL
 FROM node:20-alpine AS builder
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9 --activate
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.base.json ./
 COPY apps/ apps/
 COPY packages/ packages/
 COPY web/ web/
