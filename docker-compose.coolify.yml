@@ -197,8 +197,8 @@ services:
   # ─── Web Frontend ────────────────────────────
   web:
     build:
-      context: web
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: web/Dockerfile
     container_name: nexusos-web
     restart: unless-stopped
     ports:
